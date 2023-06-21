@@ -37,7 +37,7 @@ def toggleInput():
         buttonToggleInput.config(text="Car battery\nPress to switch to solar battery")
 
 class SerialConnection:
-
+    # ble serial connection decoder between an arduino and a raspberry pi
     def ___init__(self):
         f = open("/home/pi/deviceName.txt", "r")
         dev_name = f.read()
@@ -46,6 +46,19 @@ class SerialConnection:
     def connect(self,dev_name):
         self.serial_port = serial.Serial(port = f"{devName}", baudrate=96000,
                            bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
+
+
+    def remap_range(self,value, minInput, maxInput, minOutput, maxOutput):
+
+        value = maxInput if value > maxInput else value
+        value = minInput if value < minInput else value
+
+        inputSpan = maxInput - minInput
+        outputSpan = maxOutput - minOutput
+
+        scaledThrust = float(value - minInput) / float(inputSpan)
+
+        return minOutput + (scaledThrust * outputSpan)
 
     def read_queue(self):
         serial_string = ""
@@ -71,46 +84,31 @@ class SerialConnection:
                 serial_string = self.serial_port.readline()
                 self.pv_voltage = float(serial_string.decode('Ascii').strip())
 
+    def update_gui(self):
+        # battery voltage
+        with open("testBLE.txt", "a") as myfile:
+            myfile.write(str(self.battery_voltage))
+            myfile.write(",")
+        labelBVoltage.config(text = f"Battery Voltage: {self.battery_voltage}")
+        progressbarBVoltage['value'] = self.remap_range(self.battery_voltage,10,14,0,100)
+        # battery current
+        labelBCurrent.config(text = f"Battery Current In: {self.battery_current}")
+        # battery power
+        labelBPower.config(text = f"Battery Power In: {self.battery_power}")
+        progressbar['value'] = self.battery_power
+        # load current
+        with open("testBLE.txt", "a") as myfile:
+            myfile.write(str(self.load_current))
+            time_stamp = time.time()
+            date_time = datetime.fromtimestamp(time_stamp)
+            myfile.write(",")
+            myfile.write(str(date_time))
+            myfile.write("\n")
+        labelLCurrent.config(text = f"Load Current: {self.load_current}")
+        # pv voltage
+        labelPVVoltage.config(text = f"PV Voltage: {self.pv_voltage}")
+        
 
-        if ble_text == "Battery Voltage:":
-            serialString = serialPort.readline()
-            batteryVoltage = float(serialString.decode('Ascii').strip())
-            with open("testBLE.txt", "a") as myfile:
-                myfile.write(str(batteryVoltage))
-                myfile.write(",")
-            labelBVoltage.config(text = f"Battery Voltage: {batteryVoltage}")
-            progressbarBVoltage['value'] = remap_range(batteryVoltage,10,14,0,100)
-        elif ble_text == "Battery Current:": 
-            serialString = serialPort.readline()
-            batteryCurrent = float(serialString.decode('Ascii').strip())
-            labelBCurrent.config(text = f"Battery Current In: {batteryCurrent}")
-        elif ble_text == "Battery Power:":
-            serialString = serialPort.readline()
-            batteryPower = float(serialString.decode('Ascii').strip())
-            labelBPower.config(text = f"Battery Power In: {batteryPower}")
-            progressbar['value'] = batteryPower
-        elif ble_text == "Load Current:":
-            serialString = serialPort.readline()
-            loadCurrent = float(serialString.decode('Ascii').strip())
-            with open("testBLE.txt", "a") as myfile:
-                myfile.write(str(loadCurrent))
-                time_stamp = time.time()
-                date_time = datetime.fromtimestamp(time_stamp)
-                myfile.write(",")
-                myfile.write(str(date_time))
-                myfile.write("\n")
-            labelLCurrent.config(text = f"Load Current: {loadCurrent}")
-        elif ble_text == "PV Voltage:":
-            serialString = serialPort.readline()
-            PVVoltage = float(serialString.decode('Ascii').strip())
-            labelPVVoltage.config(text = f"PV Voltage: {PVVoltage}")
-time.sleep(15)
-
-f = open("/home/pi/deviceName.txt", "r")
-devName = f.read()
-
-
-                        # Used to hold data coming over UART
 
 
 parent = tk.Tk()
@@ -160,56 +158,19 @@ labelLCurrent.pack(side=tk.BOTTOM)
 buttonToggleInput.pack(side=tk.LEFT)
 
 
+connection = SerialConnection()
+time.sleep(15)
+f = open("/home/pi/deviceName.txt", "r")
+dev_name = f.read()
+
+connection.connect(dev_name)
+
 while(1):
 
-    # Wait until there is data waiting in the serial buffer
+
     
-    if(serialPort.in_waiting > 0):
-        print(str(serialPort.in_waiting))  
 
-        # Read data out of the buffer until a carraige return / new line is found
-        serialString = serialPort.readline()
-
-        # Print the contents of the serial data
-        ble_text = serialString.decode('Ascii').strip()
-        if ble_text == "Battery Voltage:":
-            serialString = serialPort.readline()
-            batteryVoltage = float(serialString.decode('Ascii').strip())
-            with open("testBLE.txt", "a") as myfile:
-                myfile.write(str(batteryVoltage))
-                myfile.write(",")
-            labelBVoltage.config(text = f"Battery Voltage: {batteryVoltage}")
-            progressbarBVoltage['value'] = remap_range(batteryVoltage,10,14,0,100)
-        elif ble_text == "Battery Current:": 
-            serialString = serialPort.readline()
-            batteryCurrent = float(serialString.decode('Ascii').strip())
-            labelBCurrent.config(text = f"Battery Current In: {batteryCurrent}")
-        elif ble_text == "Battery Power:":
-            serialString = serialPort.readline()
-            batteryPower = float(serialString.decode('Ascii').strip())
-            labelBPower.config(text = f"Battery Power In: {batteryPower}")
-            progressbar['value'] = batteryPower
-        elif ble_text == "Load Current:":
-            serialString = serialPort.readline()
-            loadCurrent = float(serialString.decode('Ascii').strip())
-            with open("testBLE.txt", "a") as myfile:
-                myfile.write(str(loadCurrent))
-                time_stamp = time.time()
-                date_time = datetime.fromtimestamp(time_stamp)
-                myfile.write(",")
-                myfile.write(str(date_time))
-                myfile.write("\n")
-            labelLCurrent.config(text = f"Load Current: {loadCurrent}")
-        elif ble_text == "PV Voltage:":
-            serialString = serialPort.readline()
-            PVVoltage = float(serialString.decode('Ascii').strip())
-            labelPVVoltage.config(text = f"PV Voltage: {PVVoltage}")
-
-
-
-        # Tell the device connected over the serial port that we recevied the data!
-        # The b at the beginning is used to indicate bytes!
-        # serialPort.write(b"/o1 \r\n")
-        # time.sleep(3)
-        # serialPort.write(b"/o0 \r\n")
+    connection.read_queue()
+    connection.update_gui()
+    # Wait until there is data waiting in the serial buffer
     parent.update()
